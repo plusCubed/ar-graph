@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-precision mediump float;
+precision lowp float;
 
 uniform vec4 v_Color;
 

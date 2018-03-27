@@ -6,7 +6,10 @@ import android.opengl.GLES20;
 import android.opengl.Matrix;
 import android.text.TextUtils;
 import android.util.Log;
+
 import com.pluscubed.graph.R;
+
+import org.mariuszgromada.math.mxparser.Argument;
 import org.mariuszgromada.math.mxparser.Expression;
 
 import java.nio.ByteBuffer;
@@ -18,22 +21,24 @@ import java.util.Arrays;
  * Renders an object loaded from an OBJ file in OpenGL.
  */
 public class GraphRenderer {
-    static final int COORDS_PER_VERTEX = 3;
+    private static final int BYTES_PER_FLOAT = Float.SIZE / 8;
+    private static final int COORDS_PER_VERTEX = 3;
+
     private static final String TAG = GraphRenderer.class.getSimpleName();
+
     private final float[] modelMatrix = new float[16];
     private final float[] modelViewMatrix = new float[16];
     private final float[] modelViewProjectionMatrix = new float[16];
+
     float[][] colors = {
             {1f, 0f, 0f, 1f},
             {0f, 0f, 1f, 1f}
     };
-    private float[] vertices;
-    private int axesVertexCount = 6;
+
     private int curveVertexCount;
-    private int vertexCount;
-    private int vertexStride = COORDS_PER_VERTEX * 4;
     private int program;
-    private FloatBuffer vertexBuffer;
+
+    private int vertexBufferId;
 
     private int positionHandle;
     private int colorHandle;
@@ -74,9 +79,10 @@ public class GraphRenderer {
 
         // 3D CURVE
 
-        Expression xExpression = new Expression(x);
-        Expression yExpression = new Expression(y);
-        Expression zExpression = new Expression(z);
+        Argument tArgument = new Argument("t");
+        Expression xExpression = new Expression(x, tArgument);
+        Expression yExpression = new Expression(y, tArgument);
+        Expression zExpression = new Expression(z, tArgument);
 
         float ta = 0;
         float tb = (float) (6 * Math.PI);
@@ -88,9 +94,11 @@ public class GraphRenderer {
 
         for (int i = 0; i < n; i++) {
             float t = ta + i * increment;
-            curve[i * 3] = (float) (5 * Math.cos(t));
-            curve[i * 3 + 2] = (float) (5 * Math.sin(t));
-            curve[i * 3 + 1] = t;
+            tArgument.setArgumentValue(t);
+
+            curve[i * 3] = (float) (xExpression.calculate());
+            curve[i * 3 + 1] = (float) (zExpression.calculate());
+            curve[i * 3 + 2] = (float) (yExpression.calculate());
         }
 
         Log.d(TAG, TextUtils.join(",", Arrays.asList(curve)));
@@ -99,23 +107,32 @@ public class GraphRenderer {
 
         // -----
 
-        float[] all = new float[axes.length + curve.length];
-        System.arraycopy(axes, 0, all, 0, axes.length);
-        System.arraycopy(curve, 0, all, axes.length, curve.length);
-
-        vertices = all;
-        vertexCount = vertices.length / COORDS_PER_VERTEX;
+        float[] vertices = new float[axes.length + curve.length];
+        System.arraycopy(axes, 0, vertices, 0, axes.length);
+        System.arraycopy(curve, 0, vertices, axes.length, curve.length);
 
         // -----
 
-        ByteBuffer bb = ByteBuffer.allocateDirect(vertices.length * 4);
+        int[] buffers = new int[1];
+        GLES20.glGenBuffers(1, buffers, 0);
+        vertexBufferId = buffers[0];
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vertexBufferId);
+
+        ByteBuffer bb = ByteBuffer.allocateDirect(vertices.length * BYTES_PER_FLOAT);
         bb.order(ByteOrder.nativeOrder());
-
-        vertexBuffer = bb.asFloatBuffer();
-
+        FloatBuffer vertexBuffer = bb.asFloatBuffer();
         vertexBuffer
                 .put(vertices)
                 .position(0);
+
+        GLES20.glBufferData(
+                GLES20.GL_ARRAY_BUFFER,
+                vertices.length * BYTES_PER_FLOAT,
+                vertexBuffer,
+                GLES20.GL_STATIC_DRAW
+        );
+
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);
 
     }
 
@@ -145,14 +162,15 @@ public class GraphRenderer {
 
         GLES20.glUseProgram(program);
 
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vertexBufferId);
         GLES20.glEnableVertexAttribArray(positionHandle);
         GLES20.glVertexAttribPointer(
                 positionHandle,
                 COORDS_PER_VERTEX,
                 GLES20.GL_FLOAT,
                 false,
-                vertexStride,
-                vertexBuffer
+                0,
+                0
         );
 
 
@@ -173,6 +191,8 @@ public class GraphRenderer {
 
 
         GLES20.glDisableVertexAttribArray(positionHandle);
+
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);
 
         ShaderUtil.checkGLError(TAG, "After draw");
     }
