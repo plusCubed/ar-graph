@@ -34,6 +34,7 @@ import com.google.ar.core.exceptions.UnavailableSdkTooOldException;
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException;
 import com.pluscubed.graph.rendering.AxesRenderer;
 import com.pluscubed.graph.rendering.BackgroundRenderer;
+import com.pluscubed.graph.rendering.GraphCurveRenderer;
 import com.pluscubed.graph.rendering.GraphFunctionRenderer;
 import com.pluscubed.graph.rendering.PlaneRenderer;
 import com.pluscubed.graph.rendering.PointCloudRenderer;
@@ -57,7 +58,7 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
     private final PlaneRenderer planeRenderer = new PlaneRenderer();
     private final PointCloudRenderer pointCloud = new PointCloudRenderer();
 
-    //private final GraphRenderer graphObject = new GraphRenderer();
+    private final GraphCurveRenderer graphObject = new GraphCurveRenderer();
     private final AxesRenderer axesRenderer = new AxesRenderer();
     private final GraphFunctionRenderer surfaceObject = new GraphFunctionRenderer();
 
@@ -73,13 +74,22 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
     GLSurfaceView surfaceView;
     @BindViews({R.id.para1, R.id.para2, R.id.para3})
     List<EditText> parametricEditTexts;
+    @BindView(R.id.function)
+    EditText functionEditText;
     @BindView(R.id.view_button)
     Button viewButton;
+    @BindView(R.id.view_function)
+    Button viewFunctionButton;
 
     private String x;
     private String y;
     private String z;
     private boolean updateGraph;
+
+    private String zFunction;
+    private boolean updateFunctionGraph;
+
+    private boolean functionVisible;
 
     private boolean installRequested;
     private Session session;
@@ -95,6 +105,10 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
 
         viewButton.setOnClickListener(view -> {
             queueUpdateGraph();
+        });
+
+        viewFunctionButton.setOnClickListener(v -> {
+            queueUpdateFunction();
         });
 
         displayRotationHelper = new DisplayRotationHelper(this);
@@ -134,10 +148,17 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
         installRequested = false;
     }
 
+    private void queueUpdateFunction() {
+        zFunction = functionEditText.getText().toString();
+        functionVisible = true;
+        updateFunctionGraph = true;
+    }
+
     private void queueUpdateGraph() {
         x = parametricEditTexts.get(0).getText().toString();
         y = parametricEditTexts.get(1).getText().toString();
         z = parametricEditTexts.get(2).getText().toString();
+        functionVisible = false;
         updateGraph = true;
     }
 
@@ -257,11 +278,11 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
         // Create the texture and pass it to ARCore session to be filled during update().
         backgroundRenderer.createOnGlThread(this);
 
-        //graphObject.createOnGlThread(this);
+        graphObject.createOnGlThread(this);
         //queueUpdateGraph();
 
         surfaceObject.createOnGlThread(this);
-        queueUpdateGraph();
+        queueUpdateFunction();
 
         axesRenderer.createOnGlThread(this);
 
@@ -383,22 +404,25 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
                 // during calls to session.update() as ARCore refines its estimate of the world.
                 anchor.getPose().toMatrix(anchorMatrix, 0);
 
-                /*if (updateGraph) {
-                    graphObject.updateVerticesBuffer(x, y, z);
+                if (!functionVisible) {
+                    if (updateGraph) {
+                        graphObject.updateVerticesBuffer(x, y, z);
+                    }
+                    graphObject.updateModelMatrix(anchorMatrix, 0.05f);
+                    graphObject.draw(viewmtx, projmtx, lightIntensity);
+                } else {
+                    if (updateFunctionGraph) {
+                        surfaceObject.updateSurface(zFunction);
+                    }
+                    surfaceObject.updateModelMatrix(anchorMatrix, 0.1f);
+                    surfaceObject.draw(viewmtx, projmtx, lightIntensity);
                 }
-                graphObject.updateModelMatrix(anchorMatrix, 0.05f);
-                graphObject.draw(viewmtx, projmtx, lightIntensity);*/
-
-                if (updateGraph) {
-                    surfaceObject.updateSurface("(1-x^2-y^2)*e^(-1/2*(x^2+y^2)) + 3");
-                }
-                surfaceObject.updateModelMatrix(anchorMatrix, 0.1f);
-                surfaceObject.draw(viewmtx, projmtx, lightIntensity);
 
                 axesRenderer.updateModelMatrix(anchorMatrix, 0.05f);
                 axesRenderer.draw(viewmtx, projmtx, lightIntensity);
 
                 updateGraph = false;
+                updateFunctionGraph = false;
             }
 
         } catch (Throwable t) {
