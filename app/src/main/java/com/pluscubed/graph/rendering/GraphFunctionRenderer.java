@@ -13,9 +13,11 @@ import org.mariuszgromada.math.mxparser.Expression;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
+import java.nio.ShortBuffer;
 
 public class GraphFunctionRenderer {
     private static final int BYTES_PER_FLOAT = Float.SIZE / 8;
+    private static final int BYTES_PER_SHORT = Short.SIZE / 8;
 
     private static final String TAG = GraphFunctionRenderer.class.getSimpleName();
 
@@ -30,6 +32,8 @@ public class GraphFunctionRenderer {
 
     private int vertexBufferId;
     private int indexBufferId;
+
+    private int indicesCount;
 
     private int mvpMatrixHandle;
     private int positionHandle;
@@ -72,7 +76,7 @@ public class GraphFunctionRenderer {
         Argument yArgument = new Argument("y");
         Expression zExpression = new Expression(zString, xArgument, yArgument);
 
-        float minX = (float) -5;
+        float minX = (float) -3;
         float maxX = (float) 5;
         float xIncrement = (float) .2;
         xSteps = (int) ((maxX - minX) / xIncrement);
@@ -116,10 +120,11 @@ public class GraphFunctionRenderer {
         max[1] = maxZ;
         max[2] = maxY;
 
+        int[] buffers = new int[2];
+        GLES20.glGenBuffers(2, buffers, 0);
+
         // VERTICES
 
-        int[] buffers = new int[2];
-        GLES20.glGenBuffers(1, buffers, 0);
         vertexBufferId = buffers[0];
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vertexBufferId);
 
@@ -137,39 +142,53 @@ public class GraphFunctionRenderer {
                 GLES20.GL_STATIC_DRAW
         );
 
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);
+
         //Index
 
-        /*indexBufferId = buffers[1];
-        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, indexBufferId);
+        indexBufferId = buffers[1];
+        GLES20.glBindBuffer(GLES20.GL_ELEMENT_ARRAY_BUFFER, indexBufferId);
 
-        float[] indicies = new float[xSteps * ySteps];
+        //2 indices per segment * number of segments * lines
+        short[] indices = new short[2 * (xSteps - 1) * ySteps + 2 * (ySteps - 1) * xSteps];
 
         int i = 0;
 
+        // Horizontal grid lines (y constant)
+        for (int yi = 0; yi < ySteps; yi++) {
+            for (int x = 0; x < xSteps - 1; x++) {
+                //start vertex index
+                indices[i++] = (short) (yi * xSteps + x);
+                //end vertex index
+                indices[i++] = (short) (yi * xSteps + x + 1);
+            }
+        }
+
         // Vertical grid lines (x constant)
-        for(int x = 0; x < 101; x++) {
-            for(int y = 0; y < 100; y++) {
-                indicies[i++] = y * 101 + x;
-                indicies[i++] = (y + 1) * 101 + x;
+        for (int xi = 0; xi < xSteps; xi++) {
+            for (int yi = 0; yi < ySteps - 1; yi++) {
+                indices[i++] = (short) (yi * xSteps + xi);
+                indices[i++] = (short) ((yi + 1) * xSteps + xi);
             }
         }
 
-        // Horizontal grid lines
-        for(int y = 0; y < ySteps; y++) {
-            for(int x = 0; x < xSteps - 1; x++) {
-                //start
-                indicies[i++] = y * 101 + x;
-                //end
-                indicies[i++] = y * 101 + x + 1;
-            }
-        }
+        indicesCount = indices.length;
 
+        bb = ByteBuffer.allocateDirect(indices.length * BYTES_PER_SHORT);
+        bb.order(ByteOrder.nativeOrder());
+        ShortBuffer indexBuffer = bb.asShortBuffer();
+        indexBuffer
+                .put(indices)
+                .position(0);
 
+        GLES20.glBufferData(
+                GLES20.GL_ELEMENT_ARRAY_BUFFER,
+                indices.length * BYTES_PER_SHORT,
+                indexBuffer,
+                GLES20.GL_STATIC_DRAW
+        );
 
-
-*/
-
-        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);
+        GLES20.glBindBuffer(GLES20.GL_ELEMENT_ARRAY_BUFFER, 0);
 
         ShaderUtil.checkGLError(TAG, "after update");
     }
@@ -217,27 +236,14 @@ public class GraphFunctionRenderer {
                 0
         );
 
+        GLES20.glBindBuffer(GLES20.GL_ELEMENT_ARRAY_BUFFER, indexBufferId);
+
         GLES20.glLineWidth(15);
-
-        // horizontal lines
-        for (int yi = 0; yi < ySteps; yi++)
-            GLES20.glDrawArrays(GLES20.GL_LINE_STRIP, xSteps * yi, xSteps);
-
-        // vertical lines
-        for (int xi = 0; xi < xSteps; xi++) {
-            GLES20.glVertexAttribPointer(
-                    positionHandle,
-                    3,
-                    GLES20.GL_FLOAT,
-                    false,
-                    xSteps * 3 * BYTES_PER_FLOAT,
-                    xi * 3 * BYTES_PER_FLOAT
-            );
-            GLES20.glDrawArrays(GLES20.GL_LINE_STRIP, 0, ySteps);
-        }
+        GLES20.glDrawElements(GLES20.GL_LINES, indicesCount, GLES20.GL_UNSIGNED_SHORT, 0);
 
         GLES20.glDisableVertexAttribArray(positionHandle);
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);
+        GLES20.glBindBuffer(GLES20.GL_ELEMENT_ARRAY_BUFFER, 0);
 
         ShaderUtil.checkGLError(TAG, "After draw");
     }
