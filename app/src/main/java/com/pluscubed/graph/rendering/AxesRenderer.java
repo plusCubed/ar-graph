@@ -7,26 +7,26 @@ import android.opengl.Matrix;
 
 import com.pluscubed.graph.R;
 
-import org.mariuszgromada.math.mxparser.Argument;
-import org.mariuszgromada.math.mxparser.Expression;
-
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 
-public class GraphCurveRenderer {
+public class AxesRenderer {
     private static final int BYTES_PER_FLOAT = Float.SIZE / 8;
     private static final int COORDS_PER_VERTEX = 3;
 
-    private static final String TAG = GraphCurveRenderer.class.getSimpleName();
+    private static final String TAG = AxesRenderer.class.getSimpleName();
 
     private final float[] modelMatrix = new float[16];
     private final float[] modelViewMatrix = new float[16];
     private final float[] modelViewProjectionMatrix = new float[16];
 
-    float[] color = {0f, 0f, 1f, 1f};
+    float[][] colors = {
+            {1f, 0f, 0f, 1f},
+            {0f, 1f, 0f, 1f},
+            {0f, 0f, 1f, 1f}
+    };
 
-    private int curveVertexCount;
     private int program;
 
     private int vertexBufferId;
@@ -50,36 +50,19 @@ public class GraphCurveRenderer {
         colorHandle = GLES20.glGetUniformLocation(program, "v_Color");
         mvpMatrixHandle = GLES20.glGetUniformLocation(program, "u_ModelViewProjection");
 
-        Matrix.setIdentityM(modelMatrix, 0);
-    }
+        // AXES
 
-    public void updateVerticesBuffer(String x, String y, String z) {
-
-        // 3D CURVE
-
-        Argument tArgument = new Argument("t");
-        Expression xExpression = new Expression(x, tArgument);
-        Expression yExpression = new Expression(y, tArgument);
-        Expression zExpression = new Expression(z, tArgument);
-
-        float ta = 0;
-        float tb = (float) (6 * Math.PI);
-        float increment = (float) (0.1 * Math.PI);
-
-        int n = (int) ((tb - ta) / increment);
-
-        float[] vertices = new float[n * 3];
-
-        for (int i = 0; i < n; i++) {
-            float t = ta + i * increment;
-            tArgument.setArgumentValue(t);
-
-            vertices[i * 3] = (float) (yExpression.calculate());
-            vertices[i * 3 + 1] = (float) (zExpression.calculate());
-            vertices[i * 3 + 2] = (float) (xExpression.calculate());
-        }
-
-        curveVertexCount = vertices.length / COORDS_PER_VERTEX;
+        float[] vertices = new float[]{
+                //x-axis
+                0f, 0f, 0f,
+                0f, 0f, 10f,
+                //y-axis
+                0f, 0f, 0f,
+                10f, 0f, 0f,
+                //z-axis
+                0f, 0f, 0f,
+                0f, 10f, 0f,
+        };
 
         // -----
 
@@ -104,6 +87,7 @@ public class GraphCurveRenderer {
 
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);
 
+        Matrix.setIdentityM(modelMatrix, 0);
     }
 
     /**
@@ -111,7 +95,7 @@ public class GraphCurveRenderer {
      *
      * @param modelMatrix A 4x4 model-to-world transformation matrix, stored in column-major order.
      * @param scaleFactor A separate scaling factor to apply before the {@code modelMatrix}.
-     * @see android.opengl.Matrix
+     * @see Matrix
      */
     public void updateModelMatrix(float[] modelMatrix, float scaleFactor) {
         float[] scaleMatrix = new float[16];
@@ -146,10 +130,17 @@ public class GraphCurveRenderer {
 
         GLES20.glUniformMatrix4fv(mvpMatrixHandle, 1, false, modelViewProjectionMatrix, 0);
 
-        //CURVE
-        GLES20.glUniform4fv(colorHandle, 1, color, 0);
+        //AXES
         GLES20.glLineWidth(15);
-        GLES20.glDrawArrays(GLES20.GL_LINE_STRIP, 6, curveVertexCount);
+
+        GLES20.glUniform4fv(colorHandle, 1, colors[0], 0);
+        GLES20.glDrawArrays(GLES20.GL_LINE_STRIP, 0, 2);
+
+        GLES20.glUniform4fv(colorHandle, 1, colors[1], 0);
+        GLES20.glDrawArrays(GLES20.GL_LINE_STRIP, 2, 2);
+
+        GLES20.glUniform4fv(colorHandle, 1, colors[2], 0);
+        GLES20.glDrawArrays(GLES20.GL_LINE_STRIP, 4, 2);
 
 
         GLES20.glDisableVertexAttribArray(positionHandle);

@@ -29,6 +29,7 @@ public class GraphFunctionRenderer {
     private int program;
 
     private int vertexBufferId;
+    private int indexBufferId;
 
     private int mvpMatrixHandle;
     private int positionHandle;
@@ -71,33 +72,34 @@ public class GraphFunctionRenderer {
         Argument yArgument = new Argument("y");
         Expression zExpression = new Expression(zString, xArgument, yArgument);
 
-        float xa = (float) -5;
-        float xb = (float) 5;
-        float xIncrement = (float) .5;
-        xSteps = (int) ((xb - xa) / xIncrement);
+        float minX = (float) -5;
+        float maxX = (float) 5;
+        float xIncrement = (float) .2;
+        xSteps = (int) ((maxX - minX) / xIncrement);
 
-        float ya = (float) -5;
-        float yb = (float) 5;
+        float minY = (float) -5;
+        float maxY = (float) 5;
         float yIncrement = (float) .5;
-        ySteps = (int) ((yb - ya) / yIncrement);
+        ySteps = (int) ((maxY - minY) / yIncrement);
 
+        // Ordered x, then y
         float[] vertices = new float[xSteps * ySteps * 3];
 
         float minZ = Float.MAX_VALUE;
         float maxZ = Float.MIN_VALUE;
-        for (int i = 0; i < xSteps; i++) {
-            for (int j = 0; j < ySteps; j++) {
-                float x = xa + i * xIncrement;
-                float y = ya + j * yIncrement;
+        for (int yi = 0; yi < ySteps; yi++) {
+            for (int xi = 0; xi < xSteps; xi++) {
+                float x = minX + xi * xIncrement;
+                float y = minY + yi * yIncrement;
 
                 xArgument.setArgumentValue(x);
                 yArgument.setArgumentValue(y);
 
                 float z = (float) (zExpression.calculate());
 
-                vertices[(i * xSteps + j) * 3] = x;
-                vertices[(i * xSteps + j) * 3 + 1] = z;
-                vertices[(i * xSteps + j) * 3 + 2] = y;
+                vertices[(yi * xSteps + xi) * 3] = y;
+                vertices[(yi * xSteps + xi) * 3 + 1] = z;
+                vertices[(yi * xSteps + xi) * 3 + 2] = x;
 
                 if (z < minZ)
                     minZ = z;
@@ -106,17 +108,17 @@ public class GraphFunctionRenderer {
             }
         }
 
-        min[0] = xa;
+        min[0] = minX;
         min[1] = minZ;
-        min[2] = ya;
+        min[2] = minY;
 
-        max[0] = xb;
+        max[0] = maxX;
         max[1] = maxZ;
-        max[2] = yb;
+        max[2] = maxY;
 
         // VERTICES
 
-        int[] buffers = new int[1];
+        int[] buffers = new int[2];
         GLES20.glGenBuffers(1, buffers, 0);
         vertexBufferId = buffers[0];
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vertexBufferId);
@@ -134,6 +136,38 @@ public class GraphFunctionRenderer {
                 vertexBuffer,
                 GLES20.GL_STATIC_DRAW
         );
+
+        //Index
+
+        /*indexBufferId = buffers[1];
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, indexBufferId);
+
+        float[] indicies = new float[xSteps * ySteps];
+
+        int i = 0;
+
+        // Vertical grid lines (x constant)
+        for(int x = 0; x < 101; x++) {
+            for(int y = 0; y < 100; y++) {
+                indicies[i++] = y * 101 + x;
+                indicies[i++] = (y + 1) * 101 + x;
+            }
+        }
+
+        // Horizontal grid lines
+        for(int y = 0; y < ySteps; y++) {
+            for(int x = 0; x < xSteps - 1; x++) {
+                //start
+                indicies[i++] = y * 101 + x;
+                //end
+                indicies[i++] = y * 101 + x + 1;
+            }
+        }
+
+
+
+
+*/
 
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);
 
@@ -185,19 +219,21 @@ public class GraphFunctionRenderer {
 
         GLES20.glLineWidth(15);
 
-        for (int i = 0; i < xSteps; i++)
-            GLES20.glDrawArrays(GLES20.GL_LINE_STRIP, ySteps * i, ySteps);
+        // horizontal lines
+        for (int yi = 0; yi < ySteps; yi++)
+            GLES20.glDrawArrays(GLES20.GL_LINE_STRIP, xSteps * yi, xSteps);
 
-        for (int i = 0; i < ySteps; i++) {
+        // vertical lines
+        for (int xi = 0; xi < xSteps; xi++) {
             GLES20.glVertexAttribPointer(
                     positionHandle,
                     3,
                     GLES20.GL_FLOAT,
                     false,
                     xSteps * 3 * BYTES_PER_FLOAT,
-                    i * 3 * BYTES_PER_FLOAT
+                    xi * 3 * BYTES_PER_FLOAT
             );
-            GLES20.glDrawArrays(GLES20.GL_LINE_STRIP, 0, xSteps);
+            GLES20.glDrawArrays(GLES20.GL_LINE_STRIP, 0, ySteps);
         }
 
         GLES20.glDisableVertexAttribArray(positionHandle);

@@ -32,6 +32,7 @@ import com.google.ar.core.exceptions.UnavailableApkTooOldException;
 import com.google.ar.core.exceptions.UnavailableArcoreNotInstalledException;
 import com.google.ar.core.exceptions.UnavailableSdkTooOldException;
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException;
+import com.pluscubed.graph.rendering.AxesRenderer;
 import com.pluscubed.graph.rendering.BackgroundRenderer;
 import com.pluscubed.graph.rendering.GraphFunctionRenderer;
 import com.pluscubed.graph.rendering.PlaneRenderer;
@@ -57,6 +58,7 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
     private final PointCloudRenderer pointCloud = new PointCloudRenderer();
 
     //private final GraphRenderer graphObject = new GraphRenderer();
+    private final AxesRenderer axesRenderer = new AxesRenderer();
     private final GraphFunctionRenderer surfaceObject = new GraphFunctionRenderer();
 
     // Temporary matrix allocated here to reduce number of allocations for each frame.
@@ -261,6 +263,8 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
         surfaceObject.createOnGlThread(this);
         queueUpdateGraph();
 
+        axesRenderer.createOnGlThread(this);
+
         try {
             planeRenderer.createOnGlThread(this, "trigrid.png");
         } catch (IOException e) {
@@ -390,6 +394,9 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
                 }
                 surfaceObject.updateModelMatrix(anchorMatrix, 0.1f);
                 surfaceObject.draw(viewmtx, projmtx, lightIntensity);
+
+                axesRenderer.updateModelMatrix(anchorMatrix, 0.05f);
+                axesRenderer.draw(viewmtx, projmtx, lightIntensity);
 
                 updateGraph = false;
             }
