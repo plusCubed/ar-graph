@@ -14,49 +14,71 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
-import butterknife.BindView;
-import butterknife.BindViews;
-import butterknife.ButterKnife;
-import com.google.ar.core.*;
+
+import com.google.ar.core.Anchor;
+import com.google.ar.core.ArCoreApk;
+import com.google.ar.core.Camera;
+import com.google.ar.core.Config;
+import com.google.ar.core.Frame;
+import com.google.ar.core.HitResult;
+import com.google.ar.core.Plane;
+import com.google.ar.core.Point;
 import com.google.ar.core.Point.OrientationMode;
+import com.google.ar.core.PointCloud;
+import com.google.ar.core.Session;
+import com.google.ar.core.Trackable;
+import com.google.ar.core.TrackingState;
 import com.google.ar.core.exceptions.UnavailableApkTooOldException;
 import com.google.ar.core.exceptions.UnavailableArcoreNotInstalledException;
 import com.google.ar.core.exceptions.UnavailableSdkTooOldException;
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException;
 import com.pluscubed.graph.rendering.BackgroundRenderer;
-import com.pluscubed.graph.rendering.GraphRenderer;
+import com.pluscubed.graph.rendering.GraphFunctionRenderer;
 import com.pluscubed.graph.rendering.PlaneRenderer;
 import com.pluscubed.graph.rendering.PointCloudRenderer;
 
-import javax.microedition.khronos.egl.EGLConfig;
-import javax.microedition.khronos.opengles.GL10;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 
+import javax.microedition.khronos.egl.EGLConfig;
+import javax.microedition.khronos.opengles.GL10;
+
+import butterknife.BindView;
+import butterknife.BindViews;
+import butterknife.ButterKnife;
+
 public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Renderer {
     private static final String TAG = GraphActivity.class.getSimpleName();
+
     private final BackgroundRenderer backgroundRenderer = new BackgroundRenderer();
-    private final GraphRenderer graphObject = new GraphRenderer();
     private final PlaneRenderer planeRenderer = new PlaneRenderer();
     private final PointCloudRenderer pointCloud = new PointCloudRenderer();
+
+    //private final GraphRenderer graphObject = new GraphRenderer();
+    private final GraphFunctionRenderer surfaceObject = new GraphFunctionRenderer();
+
     // Temporary matrix allocated here to reduce number of allocations for each frame.
     private final float[] anchorMatrix = new float[16];
+
     // Tap handling and UI.
     private final ArrayBlockingQueue<MotionEvent> queuedSingleTaps = new ArrayBlockingQueue<>(16);
     private final ArrayList<Anchor> anchors = new ArrayList<>();
     // Rendering. The Renderers are created here, and initialized when the GL surface is created.
+
     @BindView(R.id.surfaceview)
     GLSurfaceView surfaceView;
     @BindViews({R.id.para1, R.id.para2, R.id.para3})
     List<EditText> parametricEditTexts;
     @BindView(R.id.view_button)
     Button viewButton;
+
     private String x;
     private String y;
     private String z;
     private boolean updateGraph;
+
     private boolean installRequested;
     private Session session;
     private GestureDetector gestureDetector;
@@ -233,7 +255,10 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
         // Create the texture and pass it to ARCore session to be filled during update().
         backgroundRenderer.createOnGlThread(this);
 
-        graphObject.createOnGlThread(this);
+        //graphObject.createOnGlThread(this);
+        //queueUpdateGraph();
+
+        surfaceObject.createOnGlThread(this);
         queueUpdateGraph();
 
         try {
@@ -339,9 +364,11 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
                 }
             }
 
-            // Visualize planes.
-            planeRenderer.drawPlanes(
-                    session.getAllTrackables(Plane.class), camera.getDisplayOrientedPose(), projmtx);
+            if (anchors.size() == 0) {
+                // Visualize planes.
+                planeRenderer.drawPlanes(
+                        session.getAllTrackables(Plane.class), camera.getDisplayOrientedPose(), projmtx);
+            }
 
             // Visualize anchors created by touch.
             for (Anchor anchor : anchors) {
@@ -352,11 +379,19 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
                 // during calls to session.update() as ARCore refines its estimate of the world.
                 anchor.getPose().toMatrix(anchorMatrix, 0);
 
-                if (updateGraph) {
+                /*if (updateGraph) {
                     graphObject.updateVerticesBuffer(x, y, z);
                 }
                 graphObject.updateModelMatrix(anchorMatrix, 0.05f);
-                graphObject.draw(viewmtx, projmtx, lightIntensity);
+                graphObject.draw(viewmtx, projmtx, lightIntensity);*/
+
+                if (updateGraph) {
+                    surfaceObject.updateSurface("(1-x^2-y^2)*e^(-1/2*(x^2+y^2)) + 3");
+                }
+                surfaceObject.updateModelMatrix(anchorMatrix, 0.1f);
+                surfaceObject.draw(viewmtx, projmtx, lightIntensity);
+
+                updateGraph = false;
             }
 
         } catch (Throwable t) {

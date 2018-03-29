@@ -17,14 +17,11 @@ import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.util.Arrays;
 
-/**
- * Renders an object loaded from an OBJ file in OpenGL.
- */
-public class GraphRenderer {
+public class GraphCurveRenderer {
     private static final int BYTES_PER_FLOAT = Float.SIZE / 8;
     private static final int COORDS_PER_VERTEX = 3;
 
-    private static final String TAG = GraphRenderer.class.getSimpleName();
+    private static final String TAG = GraphCurveRenderer.class.getSimpleName();
 
     private final float[] modelMatrix = new float[16];
     private final float[] modelViewMatrix = new float[16];
@@ -46,9 +43,9 @@ public class GraphRenderer {
 
     public void createOnGlThread(Context context) {
         final int vertexShader =
-                ShaderUtil.loadGLShader(TAG, context, GLES20.GL_VERTEX_SHADER, R.raw.graph_vertex);
+                ShaderUtil.loadGLShader(TAG, context, GLES20.GL_VERTEX_SHADER, R.raw.graph_curve_vertex);
         final int fragmentShader =
-                ShaderUtil.loadGLShader(TAG, context, GLES20.GL_FRAGMENT_SHADER, R.raw.graph_fragment);
+                ShaderUtil.loadGLShader(TAG, context, GLES20.GL_FRAGMENT_SHADER, R.raw.graph_curve_fragment);
 
         program = GLES20.glCreateProgram();
         GLES20.glAttachShader(program, vertexShader);
