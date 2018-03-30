@@ -1,4 +1,20 @@
-package com.pluscubed.graph.rendering;
+/*
+ * Copyright 2017 Google Inc. All Rights Reserved.
+ * Modifications Copyright 2018 Daniel Ciao
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.pluscubed.graph.arcore.rendering;
 
 import android.content.Context;
 import android.opengl.GLES20;
@@ -16,12 +32,13 @@ public class ShaderUtil {
     /**
      * Converts a raw text file, saved as a resource, into an OpenGL ES shader.
      *
-     * @param type  The type of shader we will be creating.
-     * @param resId The resource ID of the raw text file about to be turned into a shader.
+     * @param type     The type of shader we will be creating.
+     * @param filename The filename of the asset file about to be turned into a shader.
      * @return The shader object handler.
      */
-    public static int loadGLShader(String tag, Context context, int type, int resId) {
-        String code = readRawTextFile(context, resId);
+    public static int loadGLShader(String tag, Context context, int type, String filename)
+            throws IOException {
+        String code = readRawTextFileFromAssets(context, filename);
         int shader = GLES20.glCreateShader(type);
         GLES20.glShaderSource(shader, code);
         GLES20.glCompileShader(shader);
@@ -66,23 +83,19 @@ public class ShaderUtil {
     /**
      * Converts a raw text file into a string.
      *
-     * @param resId The resource ID of the raw text file about to be turned into a shader.
+     * @param filename The filename of the asset file about to be turned into a shader.
      * @return The context of the text file, or null in case of error.
      */
-    private static String readRawTextFile(Context context, int resId) {
-        InputStream inputStream = context.getResources().openRawResource(resId);
-        try {
-            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+    private static String readRawTextFileFromAssets(Context context, String filename)
+            throws IOException {
+        try (InputStream inputStream = context.getAssets().open(filename);
+             BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
             StringBuilder sb = new StringBuilder();
             String line;
             while ((line = reader.readLine()) != null) {
                 sb.append(line).append("\n");
             }
-            reader.close();
             return sb.toString();
-        } catch (IOException e) {
-            e.printStackTrace();
         }
-        return null;
     }
 }

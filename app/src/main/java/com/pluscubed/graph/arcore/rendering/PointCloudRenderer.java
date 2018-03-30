@@ -1,20 +1,39 @@
-package com.pluscubed.graph.rendering;
+/*
+ * Copyright 2017 Google Inc. All Rights Reserved.
+ * Modifications Copyright 2018 Daniel Ciao
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.pluscubed.graph.arcore.rendering;
 
 import android.content.Context;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
-import com.google.ar.core.PointCloud;
-import com.pluscubed.graph.R;
 
-import javax.microedition.khronos.egl.EGLConfig;
-import javax.microedition.khronos.opengles.GL10;
+import com.google.ar.core.PointCloud;
+
+import java.io.IOException;
 
 /**
  * Renders a point cloud.
  */
 public class PointCloudRenderer {
     private static final String TAG = PointCloud.class.getSimpleName();
+
+    // Shader names.
+    private static final String VERTEX_SHADER_NAME = "arcore/shaders/point_cloud.vert";
+    private static final String FRAGMENT_SHADER_NAME = "arcore/shaders/point_cloud.frag";
 
     private static final int BYTES_PER_FLOAT = Float.SIZE / 8;
     private static final int FLOATS_PER_POINT = 4; // X,Y,Z,confidence.
@@ -45,7 +64,7 @@ public class PointCloudRenderer {
      *
      * @param context Needed to access shader source.
      */
-    public void createOnGlThread(Context context) {
+    public void createOnGlThread(Context context) throws IOException {
         ShaderUtil.checkGLError(TAG, "before create");
 
         int[] buffers = new int[1];
@@ -60,10 +79,9 @@ public class PointCloudRenderer {
         ShaderUtil.checkGLError(TAG, "buffer alloc");
 
         int vertexShader =
-                ShaderUtil.loadGLShader(TAG, context, GLES20.GL_VERTEX_SHADER, R.raw.point_cloud_vertex);
+                ShaderUtil.loadGLShader(TAG, context, GLES20.GL_VERTEX_SHADER, VERTEX_SHADER_NAME);
         int passthroughShader =
-                ShaderUtil.loadGLShader(
-                        TAG, context, GLES20.GL_FRAGMENT_SHADER, R.raw.passthrough_fragment);
+                ShaderUtil.loadGLShader(TAG, context, GLES20.GL_FRAGMENT_SHADER, FRAGMENT_SHADER_NAME);
 
         programName = GLES20.glCreateProgram();
         GLES20.glAttachShader(programName, vertexShader);

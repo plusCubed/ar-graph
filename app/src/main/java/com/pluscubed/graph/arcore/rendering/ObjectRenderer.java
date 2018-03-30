@@ -1,4 +1,20 @@
-package com.pluscubed.graph.rendering;
+/*
+ * Copyright 2017 Google Inc. All Rights Reserved.
+ * Modifications Copyright 2018 Daniel Ciao
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.pluscubed.graph.arcore.rendering;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -6,30 +22,37 @@ import android.graphics.BitmapFactory;
 import android.opengl.GLES20;
 import android.opengl.GLUtils;
 import android.opengl.Matrix;
-import com.pluscubed.graph.R;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+import java.nio.ShortBuffer;
+
 import de.javagl.obj.Obj;
 import de.javagl.obj.ObjData;
 import de.javagl.obj.ObjReader;
 import de.javagl.obj.ObjUtils;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.*;
 
 /**
  * Renders an object loaded from an OBJ file in OpenGL.
  */
 public class ObjectRenderer {
     private static final String TAG = ObjectRenderer.class.getSimpleName();
+
+  // Shader names.
+  private static final String VERTEX_SHADER_NAME = "arcore/shaders/object.vert";
+  private static final String FRAGMENT_SHADER_NAME = "arcore/shaders/object.frag";
+  private final int[] textures = new int[1];
+
     private static final int COORDS_PER_VERTEX = 3;
+
     // Note: the last component must be zero to avoid applying the translational part of the matrix.
     private static final float[] LIGHT_DIRECTION = new float[]{0.250f, 0.866f, 0.433f, 0.0f};
     private final float[] viewLightDirection = new float[4];
-    private final int[] textures = new int[1];
-    // Temporary matrices allocated here to reduce number of allocations for each frame.
-    private final float[] modelMatrix = new float[16];
-    private final float[] modelViewMatrix = new float[16];
-    private final float[] modelViewProjectionMatrix = new float[16];
+
     // Object vertex buffer variables.
     private int vertexBufferId;
     private int verticesBaseAddress;
@@ -37,21 +60,42 @@ public class ObjectRenderer {
     private int normalsBaseAddress;
     private int indexBufferId;
     private int indexCount;
+
     private int program;
+  // Temporary matrices allocated here to reduce number of allocations for each frame.
+  private final float[] modelMatrix = new float[16];
+
     // Shader location: model view projection matrix.
     private int modelViewUniform;
     private int modelViewProjectionUniform;
+
     // Shader location: object attributes.
     private int positionAttribute;
     private int normalAttribute;
     private int texCoordAttribute;
+
     // Shader location: texture sampler.
     private int textureUniform;
+
     // Shader location: environment properties.
     private int lightingParametersUniform;
+
     // Shader location: material properties.
     private int materialParametersUniform;
+  private final float[] modelViewMatrix = new float[16];
+
     private BlendMode blendMode = null;
+  private final float[] modelViewProjectionMatrix = new float[16];
+  // Shader location: color correction property
+  private int colorCorrectionParameterUniform;
+
+  private static void normalizeVec3(float[] v) {
+    float reciprocalLength = 1.0f / (float) Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+    v[0] *= reciprocalLength;
+    v[1] *= reciprocalLength;
+    v[2] *= reciprocalLength;
+  }
+
     // Set some default material properties to use for lighting.
     private float ambient = 0.3f;
     private float diffuse = 1.0f;
@@ -59,13 +103,6 @@ public class ObjectRenderer {
     private float specularPower = 6.0f;
 
     public ObjectRenderer() {
-    }
-
-    private static void normalizeVec3(float[] v) {
-        float reciprocalLength = 1.0f / (float) Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
-        v[0] *= reciprocalLength;
-        v[1] *= reciprocalLength;
-        v[2] *= reciprocalLength;
     }
 
     /**
@@ -77,6 +114,35 @@ public class ObjectRenderer {
      */
     public void createOnGlThread(Context context, String objAssetName, String diffuseTextureAssetName)
             throws IOException {
+      final int vertexShader =
+              ShaderUtil.loadGLShader(TAG, context, GLES20.GL_VERTEX_SHADER, VERTEX_SHADER_NAME);
+      final int fragmentShader =
+              ShaderUtil.loadGLShader(TAG, context, GLES20.GL_FRAGMENT_SHADER, FRAGMENT_SHADER_NAME);
+
+      program = GLES20.glCreateProgram();
+      GLES20.glAttachShader(program, vertexShader);
+      GLES20.glAttachShader(program, fragmentShader);
+      GLES20.glLinkProgram(program);
+      GLES20.glUseProgram(program);
+
+      ShaderUtil.checkGLError(TAG, "Program creation");
+
+      modelViewUniform = GLES20.glGetUniformLocation(program, "u_ModelView");
+      modelViewProjectionUniform = GLES20.glGetUniformLocation(program, "u_ModelViewProjection");
+
+      positionAttribute = GLES20.glGetAttribLocation(program, "a_Position");
+      normalAttribute = GLES20.glGetAttribLocation(program, "a_Normal");
+      texCoordAttribute = GLES20.glGetAttribLocation(program, "a_TexCoord");
+
+      textureUniform = GLES20.glGetUniformLocation(program, "u_Texture");
+
+      lightingParametersUniform = GLES20.glGetUniformLocation(program, "u_LightingParameters");
+      materialParametersUniform = GLES20.glGetUniformLocation(program, "u_MaterialParameters");
+      colorCorrectionParameterUniform =
+              GLES20.glGetUniformLocation(program, "u_ColorCorrectionParameters");
+
+      ShaderUtil.checkGLError(TAG, "Program parameters");
+
         // Read the texture.
         Bitmap textureBitmap =
                 BitmapFactory.decodeStream(context.getAssets().open(diffuseTextureAssetName));
@@ -157,33 +223,6 @@ public class ObjectRenderer {
 
         ShaderUtil.checkGLError(TAG, "OBJ buffer load");
 
-        final int vertexShader =
-                ShaderUtil.loadGLShader(TAG, context, GLES20.GL_VERTEX_SHADER, R.raw.object_vertex);
-        final int fragmentShader =
-                ShaderUtil.loadGLShader(TAG, context, GLES20.GL_FRAGMENT_SHADER, R.raw.object_fragment);
-
-        program = GLES20.glCreateProgram();
-        GLES20.glAttachShader(program, vertexShader);
-        GLES20.glAttachShader(program, fragmentShader);
-        GLES20.glLinkProgram(program);
-        GLES20.glUseProgram(program);
-
-        ShaderUtil.checkGLError(TAG, "Program creation");
-
-        modelViewUniform = GLES20.glGetUniformLocation(program, "u_ModelView");
-        modelViewProjectionUniform = GLES20.glGetUniformLocation(program, "u_ModelViewProjection");
-
-        positionAttribute = GLES20.glGetAttribLocation(program, "a_Position");
-        normalAttribute = GLES20.glGetAttribLocation(program, "a_Normal");
-        texCoordAttribute = GLES20.glGetAttribLocation(program, "a_TexCoord");
-
-        textureUniform = GLES20.glGetUniformLocation(program, "u_Texture");
-
-        lightingParametersUniform = GLES20.glGetUniformLocation(program, "u_LightingParameters");
-        materialParametersUniform = GLES20.glGetUniformLocation(program, "u_MaterialParameters");
-
-        ShaderUtil.checkGLError(TAG, "Program parameters");
-
         Matrix.setIdentityM(modelMatrix, 0);
     }
 
@@ -201,7 +240,7 @@ public class ObjectRenderer {
      *
      * @param modelMatrix A 4x4 model-to-world transformation matrix, stored in column-major order.
      * @param scaleFactor A separate scaling factor to apply before the {@code modelMatrix}.
-     * @see android.opengl.Matrix
+     * @see Matrix
      */
     public void updateModelMatrix(float[] modelMatrix, float scaleFactor) {
         float[] scaleMatrix = new float[16];
@@ -239,9 +278,9 @@ public class ObjectRenderer {
      * @see #setBlendMode(BlendMode)
      * @see #updateModelMatrix(float[], float)
      * @see #setMaterialProperties(float, float, float, float)
-     * @see android.opengl.Matrix
+     * @see Matrix
      */
-    public void draw(float[] cameraView, float[] cameraPerspective, float lightIntensity) {
+    public void draw(float[] cameraView, float[] cameraPerspective, float[] colorCorrectionRgba) {
 
         ShaderUtil.checkGLError(TAG, "Before draw");
 
@@ -260,7 +299,14 @@ public class ObjectRenderer {
                 viewLightDirection[0],
                 viewLightDirection[1],
                 viewLightDirection[2],
-                lightIntensity);
+                1.f);
+
+      GLES20.glUniform4f(
+              colorCorrectionParameterUniform,
+              colorCorrectionRgba[0],
+              colorCorrectionRgba[1],
+              colorCorrectionRgba[2],
+              colorCorrectionRgba[3]);
 
         // Set the object material properties.
         GLES20.glUniform4f(materialParametersUniform, ambient, diffuse, specular, specularPower);

@@ -1,4 +1,20 @@
-package com.pluscubed.graph.rendering;
+/*
+ * Copyright 2017 Google Inc. All Rights Reserved.
+ * Modifications Copyright 2018 Daniel Ciao
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.pluscubed.graph.arcore.rendering;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -7,26 +23,34 @@ import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.opengl.GLUtils;
 import android.opengl.Matrix;
+
 import com.google.ar.core.Camera;
 import com.google.ar.core.Plane;
 import com.google.ar.core.Pose;
 import com.google.ar.core.TrackingState;
-import com.pluscubed.graph.R;
 
-import javax.microedition.khronos.egl.EGLConfig;
-import javax.microedition.khronos.opengles.GL10;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Renders the detected AR planes.
  */
 public class PlaneRenderer {
     private static final String TAG = PlaneRenderer.class.getSimpleName();
+
+    // Shader names.
+    private static final String VERTEX_SHADER_NAME = "arcore/shaders/plane.vert";
+    private static final String FRAGMENT_SHADER_NAME = "arcore/shaders/plane.frag";
 
     private static final int BYTES_PER_FLOAT = Float.SIZE / 8;
     private static final int BYTES_PER_SHORT = Short.SIZE / 8;
@@ -74,16 +98,9 @@ public class PlaneRenderer {
             0xFF9800FF,
     };
     private final int[] textures = new int[1];
-    // Temporary lists/matrices allocated here to reduce number of allocations for each frame.
-    private final float[] modelMatrix = new float[16];
-    private final float[] modelViewMatrix = new float[16];
-    private final float[] modelViewProjectionMatrix = new float[16];
-    private final float[] planeColor = new float[4];
-    private final float[] planeAngleUvMatrix =
-            new float[4]; // 2x2 rotation matrix applied to uv coords.
-    private final Map<Plane, Integer> planeIndexMap = new HashMap<>();
-    private int planeProgram;
+
     private int planeXZPositionAlphaAttribute;
+
     private int planeModelUniform;
     private int planeModelViewProjectionUniform;
     private int textureUniform;
@@ -91,6 +108,7 @@ public class PlaneRenderer {
     private int dotColorUniform;
     private int gridControlUniform;
     private int planeUvMatrixUniform;
+
     private FloatBuffer vertexBuffer =
             ByteBuffer.allocateDirect(INITIAL_VERTEX_BUFFER_SIZE_BYTES)
                     .order(ByteOrder.nativeOrder())
@@ -99,68 +117,20 @@ public class PlaneRenderer {
             ByteBuffer.allocateDirect(INITIAL_INDEX_BUFFER_SIZE_BYTES)
                     .order(ByteOrder.nativeOrder())
                     .asShortBuffer();
+    // Temporary lists/matrices allocated here to reduce number of allocations for each frame.
+    private final float[] modelMatrix = new float[16];
+    private final float[] modelViewMatrix = new float[16];
+    private final float[] modelViewProjectionMatrix = new float[16];
+    private final float[] planeColor = new float[4];
+    private final float[] planeAngleUvMatrix =
+            new float[4]; // 2x2 rotation matrix applied to uv coords.
+
+    private final Map<Plane, Integer> planeIndexMap = new HashMap<>();
 
     public PlaneRenderer() {
     }
 
-    private static void colorRgbaToFloat(float[] planeColor, int colorRgba) {
-        planeColor[0] = ((float) ((colorRgba >> 24) & 0xff)) / 255.0f;
-        planeColor[1] = ((float) ((colorRgba >> 16) & 0xff)) / 255.0f;
-        planeColor[2] = ((float) ((colorRgba >> 8) & 0xff)) / 255.0f;
-        planeColor[3] = ((float) ((colorRgba >> 0) & 0xff)) / 255.0f;
-    }
-
-    /**
-     * Allocates and initializes OpenGL resources needed by the plane renderer. Must be called on the
-     * OpenGL thread, typically in {@link GLSurfaceView.Renderer#onSurfaceCreated(GL10, EGLConfig)}.
-     *
-     * @param context                 Needed to access shader source and texture PNG.
-     * @param gridDistanceTextureName Name of the PNG file containing the grid texture.
-     */
-    public void createOnGlThread(Context context, String gridDistanceTextureName) throws IOException {
-        int vertexShader =
-                ShaderUtil.loadGLShader(TAG, context, GLES20.GL_VERTEX_SHADER, R.raw.plane_vertex);
-        int passthroughShader =
-                ShaderUtil.loadGLShader(TAG, context, GLES20.GL_FRAGMENT_SHADER, R.raw.plane_fragment);
-
-        planeProgram = GLES20.glCreateProgram();
-        GLES20.glAttachShader(planeProgram, vertexShader);
-        GLES20.glAttachShader(planeProgram, passthroughShader);
-        GLES20.glLinkProgram(planeProgram);
-        GLES20.glUseProgram(planeProgram);
-
-        ShaderUtil.checkGLError(TAG, "Program creation");
-
-        // Read the texture.
-        Bitmap textureBitmap =
-                BitmapFactory.decodeStream(context.getAssets().open(gridDistanceTextureName));
-
-        GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
-        GLES20.glGenTextures(textures.length, textures, 0);
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textures[0]);
-
-        GLES20.glTexParameteri(
-                GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR_MIPMAP_LINEAR);
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
-        GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, textureBitmap, 0);
-        GLES20.glGenerateMipmap(GLES20.GL_TEXTURE_2D);
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
-
-        ShaderUtil.checkGLError(TAG, "Texture loading");
-
-        planeXZPositionAlphaAttribute = GLES20.glGetAttribLocation(planeProgram, "a_XZPositionAlpha");
-
-        planeModelUniform = GLES20.glGetUniformLocation(planeProgram, "u_Model");
-        planeModelViewProjectionUniform =
-                GLES20.glGetUniformLocation(planeProgram, "u_ModelViewProjection");
-        textureUniform = GLES20.glGetUniformLocation(planeProgram, "u_Texture");
-        lineColorUniform = GLES20.glGetUniformLocation(planeProgram, "u_lineColor");
-        dotColorUniform = GLES20.glGetUniformLocation(planeProgram, "u_dotColor");
-        gridControlUniform = GLES20.glGetUniformLocation(planeProgram, "u_gridControl");
-        planeUvMatrixUniform = GLES20.glGetUniformLocation(planeProgram, "u_PlaneUvMatrix");
-
-        ShaderUtil.checkGLError(TAG, "Program parameters");
-    }
+    private int planeProgram;
 
     /**
      * Updates the plane model transform matrix and extents.
@@ -275,6 +245,13 @@ public class PlaneRenderer {
         GLES20.glDrawElements(
                 GLES20.GL_TRIANGLE_STRIP, indexBuffer.limit(), GLES20.GL_UNSIGNED_SHORT, indexBuffer);
         ShaderUtil.checkGLError(TAG, "Drawing plane");
+    }
+
+    private static void colorRgbaToFloat(float[] planeColor, int colorRgba) {
+        planeColor[0] = ((float) ((colorRgba >> 24) & 0xff)) / 255.0f;
+        planeColor[1] = ((float) ((colorRgba >> 16) & 0xff)) / 255.0f;
+        planeColor[2] = ((float) ((colorRgba >> 8) & 0xff)) / 255.0f;
+        planeColor[3] = ((float) ((colorRgba >> 0) & 0xff)) / 255.0f;
     }
 
     /**
@@ -398,6 +375,58 @@ public class PlaneRenderer {
         GLES20.glDepthMask(true);
 
         ShaderUtil.checkGLError(TAG, "Cleaning up after drawing planes");
+    }
+
+    /**
+     * Allocates and initializes OpenGL resources needed by the plane renderer. Must be called on the
+     * OpenGL thread, typically in {@link GLSurfaceView.Renderer#onSurfaceCreated(GL10, EGLConfig)}.
+     *
+     * @param context                 Needed to access shader source and texture PNG.
+     * @param gridDistanceTextureName Name of the PNG file containing the grid texture.
+     */
+    public void createOnGlThread(Context context, String gridDistanceTextureName) throws IOException {
+        int vertexShader =
+                ShaderUtil.loadGLShader(TAG, context, GLES20.GL_VERTEX_SHADER, VERTEX_SHADER_NAME);
+        int passthroughShader =
+                ShaderUtil.loadGLShader(TAG, context, GLES20.GL_FRAGMENT_SHADER, FRAGMENT_SHADER_NAME);
+
+        planeProgram = GLES20.glCreateProgram();
+        GLES20.glAttachShader(planeProgram, vertexShader);
+        GLES20.glAttachShader(planeProgram, passthroughShader);
+        GLES20.glLinkProgram(planeProgram);
+        GLES20.glUseProgram(planeProgram);
+
+        ShaderUtil.checkGLError(TAG, "Program creation");
+
+        // Read the texture.
+        Bitmap textureBitmap =
+                BitmapFactory.decodeStream(context.getAssets().open(gridDistanceTextureName));
+
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+        GLES20.glGenTextures(textures.length, textures, 0);
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textures[0]);
+
+        GLES20.glTexParameteri(
+                GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR_MIPMAP_LINEAR);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
+        GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, textureBitmap, 0);
+        GLES20.glGenerateMipmap(GLES20.GL_TEXTURE_2D);
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
+
+        ShaderUtil.checkGLError(TAG, "Texture loading");
+
+        planeXZPositionAlphaAttribute = GLES20.glGetAttribLocation(planeProgram, "a_XZPositionAlpha");
+
+        planeModelUniform = GLES20.glGetUniformLocation(planeProgram, "u_Model");
+        planeModelViewProjectionUniform =
+                GLES20.glGetUniformLocation(planeProgram, "u_ModelViewProjection");
+        textureUniform = GLES20.glGetUniformLocation(planeProgram, "u_Texture");
+        lineColorUniform = GLES20.glGetUniformLocation(planeProgram, "u_lineColor");
+        dotColorUniform = GLES20.glGetUniformLocation(planeProgram, "u_dotColor");
+        gridControlUniform = GLES20.glGetUniformLocation(planeProgram, "u_gridControl");
+        planeUvMatrixUniform = GLES20.glGetUniformLocation(planeProgram, "u_PlaneUvMatrix");
+
+        ShaderUtil.checkGLError(TAG, "Program parameters");
     }
 
     static class SortablePlane {

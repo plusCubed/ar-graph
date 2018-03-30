@@ -1,15 +1,15 @@
 package com.pluscubed.graph.rendering;
 
-
 import android.content.Context;
 import android.opengl.GLES20;
 import android.opengl.Matrix;
 
-import com.pluscubed.graph.R;
+import com.pluscubed.graph.arcore.rendering.ShaderUtil;
 
 import org.mariuszgromada.math.mxparser.Argument;
 import org.mariuszgromada.math.mxparser.Expression;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -20,6 +20,10 @@ public class GraphFunctionRenderer {
     private static final int BYTES_PER_SHORT = Short.SIZE / 8;
 
     private static final String TAG = GraphFunctionRenderer.class.getSimpleName();
+
+    // Shader names.
+    private static final String VERTEX_SHADER_NAME = "shaders/function.vert";
+    private static final String FRAGMENT_SHADER_NAME = "shaders/function.frag";
 
     private final float[] modelMatrix = new float[16];
     private final float[] modelViewMatrix = new float[16];
@@ -43,11 +47,11 @@ public class GraphFunctionRenderer {
     private int xSteps;
     private int ySteps;
 
-    public void createOnGlThread(Context context) {
+    public void createOnGlThread(Context context) throws IOException {
         final int vertexShader =
-                ShaderUtil.loadGLShader(TAG, context, GLES20.GL_VERTEX_SHADER, R.raw.graph_function_vertex);
+                ShaderUtil.loadGLShader(TAG, context, GLES20.GL_VERTEX_SHADER, VERTEX_SHADER_NAME);
         final int fragmentShader =
-                ShaderUtil.loadGLShader(TAG, context, GLES20.GL_FRAGMENT_SHADER, R.raw.graph_function_fragment);
+                ShaderUtil.loadGLShader(TAG, context, GLES20.GL_FRAGMENT_SHADER, FRAGMENT_SHADER_NAME);
 
         program = GLES20.glCreateProgram();
         GLES20.glAttachShader(program, vertexShader);
@@ -209,7 +213,7 @@ public class GraphFunctionRenderer {
         Matrix.multiplyMM(this.modelMatrix, 0, modelMatrix, 0, scaleMatrix, 0);
     }
 
-    public void draw(float[] viewmtx, float[] projmtx, float lightIntensity) {
+    public void draw(float[] viewmtx, float[] projmtx, float[] colorCorrectionRgba) {
         ShaderUtil.checkGLError(TAG, "Before draw");
 
         // Build the ModelView and ModelViewProjection matrices
