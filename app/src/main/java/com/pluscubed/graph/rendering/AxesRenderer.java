@@ -18,8 +18,8 @@ public class AxesRenderer {
     private static final String TAG = AxesRenderer.class.getSimpleName();
 
     // Shader names.
-    private static final String VERTEX_SHADER_NAME = "shaders/curve.vert";
-    private static final String FRAGMENT_SHADER_NAME = "shaders/curve.frag";
+    private static final String VERTEX_SHADER_NAME = "shaders/axes.vert";
+    private static final String FRAGMENT_SHADER_NAME = "shaders/axes.frag";
 
     private final float[] modelMatrix = new float[16];
     private final float[] modelViewMatrix = new float[16];
@@ -59,13 +59,13 @@ public class AxesRenderer {
         float[] vertices = new float[]{
                 //x-axis
                 0f, 0f, 0f,
-                0f, 0f, 10f,
+                0f, 0f, 1f,
                 //y-axis
                 0f, 0f, 0f,
-                10f, 0f, 0f,
+                1f, 0f, 0f,
                 //z-axis
                 0f, 0f, 0f,
-                0f, 10f, 0f,
+                0f, 1f, 0f,
         };
 
         // -----

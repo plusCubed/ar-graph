@@ -4,6 +4,7 @@ import android.content.Context;
 import android.opengl.GLES20;
 import android.opengl.Matrix;
 
+import com.pluscubed.graph.Utils;
 import com.pluscubed.graph.arcore.rendering.ShaderUtil;
 
 import org.mariuszgromada.math.mxparser.Argument;
@@ -21,23 +22,25 @@ public class GraphCurveRenderer {
     private static final String TAG = GraphCurveRenderer.class.getSimpleName();
 
     // Shader names.
-    private static final String VERTEX_SHADER_NAME = "shaders/function.vert";
-    private static final String FRAGMENT_SHADER_NAME = "shaders/function.frag";
+    private static final String VERTEX_SHADER_NAME = "shaders/graph.vert";
+    private static final String FRAGMENT_SHADER_NAME = "shaders/graph.frag";
 
     private final float[] modelMatrix = new float[16];
     private final float[] modelViewMatrix = new float[16];
     private final float[] modelViewProjectionMatrix = new float[16];
 
-    float[] color = {0f, 0f, 1f, 1f};
-
-    private int curveVertexCount;
+    private int vertexCount;
     private int program;
+
+    private float[] min;
+    private float[] max;
 
     private int vertexBufferId;
 
     private int positionHandle;
-    private int colorHandle;
     private int mvpMatrixHandle;
+    private int minHandle;
+    private int maxHandle;
 
     public void createOnGlThread(Context context) throws IOException {
         final int vertexShader =
@@ -51,39 +54,60 @@ public class GraphCurveRenderer {
         GLES20.glLinkProgram(program);
 
         positionHandle = GLES20.glGetAttribLocation(program, "a_Position");
-        colorHandle = GLES20.glGetUniformLocation(program, "v_Color");
         mvpMatrixHandle = GLES20.glGetUniformLocation(program, "u_ModelViewProjection");
+        minHandle = GLES20.glGetUniformLocation(program, "u_Min");
+        maxHandle = GLES20.glGetUniformLocation(program, "u_Max");
 
         Matrix.setIdentityM(modelMatrix, 0);
     }
 
-    public void updateVerticesBuffer(String x, String y, String z) {
+    public void updateCurve(String[] components, String[] bounds) {
 
         // 3D CURVE
 
         Argument tArgument = new Argument("t");
-        Expression xExpression = new Expression(x, tArgument);
-        Expression yExpression = new Expression(y, tArgument);
-        Expression zExpression = new Expression(z, tArgument);
+        Expression xExpression = new Expression(components[0], tArgument);
+        Expression yExpression = new Expression(components[1], tArgument);
+        Expression zExpression = new Expression(components[2], tArgument);
 
-        float ta = 0;
-        float tb = (float) (6 * Math.PI);
-        float increment = (float) (0.1 * Math.PI);
+        float tMin = Utils.evaluateExpression(bounds[0]);
+        float tMax = Utils.evaluateExpression(bounds[1]);
+        float tRange = tMax - tMin;
 
-        int n = (int) ((tb - ta) / increment);
+        float increment = tRange / 200;
+        int steps = (int) (tRange / increment);
 
-        float[] vertices = new float[n * 3];
+        float[] vertices = new float[steps * 3];
 
-        for (int i = 0; i < n; i++) {
-            float t = ta + i * increment;
+        min = new float[]{Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE};
+        max = new float[]{Float.MIN_VALUE, Float.MIN_VALUE, Float.MIN_VALUE};
+
+        float[] coord = new float[3];
+
+        for (int i = 0; i < steps; i++) {
+            float t = tMin + i * increment;
             tArgument.setArgumentValue(t);
 
-            vertices[i * 3] = (float) (yExpression.calculate());
-            vertices[i * 3 + 1] = (float) (zExpression.calculate());
-            vertices[i * 3 + 2] = (float) (xExpression.calculate());
+            float x = (float) (xExpression.calculate());
+            float y = (float) (yExpression.calculate());
+            float z = (float) (zExpression.calculate());
+
+            coord[0] = y;
+            coord[1] = z;
+            coord[2] = x;
+            for (int j = 0; j < 3; j++) {
+                if (coord[j] < min[j])
+                    min[j] = coord[j];
+                if (coord[j] > max[j])
+                    max[j] = coord[j];
+            }
+
+            vertices[i * 3] = y;
+            vertices[i * 3 + 1] = z;
+            vertices[i * 3 + 2] = x;
         }
 
-        curveVertexCount = vertices.length / COORDS_PER_VERTEX;
+        vertexCount = vertices.length / COORDS_PER_VERTEX;
 
         // -----
 
@@ -136,6 +160,12 @@ public class GraphCurveRenderer {
 
         GLES20.glUseProgram(program);
 
+        GLES20.glUniformMatrix4fv(mvpMatrixHandle, 1, false, modelViewProjectionMatrix, 0);
+        GLES20.glUniform3fv(minHandle, 1, min, 0);
+        GLES20.glUniform3fv(maxHandle, 1, max, 0);
+
+        //CURVE
+
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vertexBufferId);
         GLES20.glEnableVertexAttribArray(positionHandle);
         GLES20.glVertexAttribPointer(
@@ -147,14 +177,8 @@ public class GraphCurveRenderer {
                 0
         );
 
-
-        GLES20.glUniformMatrix4fv(mvpMatrixHandle, 1, false, modelViewProjectionMatrix, 0);
-
-        //CURVE
-        GLES20.glUniform4fv(colorHandle, 1, color, 0);
         GLES20.glLineWidth(15);
-        GLES20.glDrawArrays(GLES20.GL_LINE_STRIP, 6, curveVertexCount);
-
+        GLES20.glDrawArrays(GLES20.GL_LINE_STRIP, 0, vertexCount);
 
         GLES20.glDisableVertexAttribArray(positionHandle);
 

@@ -68,9 +68,9 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
     private final PlaneRenderer planeRenderer = new PlaneRenderer();
     private DisplayRotationHelper displayRotationHelper;
 
-    private final GraphCurveRenderer graphObject = new GraphCurveRenderer();
+    private final GraphCurveRenderer curveObject = new GraphCurveRenderer();
     private final AxesRenderer axesRenderer = new AxesRenderer();
-    private final GraphFunctionRenderer surfaceObject = new GraphFunctionRenderer();
+    private final GraphFunctionRenderer functionObject = new GraphFunctionRenderer();
 
     // Temporary matrix allocated here to reduce number of allocations for each frame.
     private final float[] anchorMatrix = new float[16];
@@ -78,19 +78,27 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
 
     @BindViews({R.id.para1, R.id.para2, R.id.para3})
     List<EditText> parametricEditTexts;
+    @BindView(R.id.view_button)
+    Button viewParametricButton;
+    @BindView(R.id.tbounds)
+    BoundsView tBoundsView;
+
     @BindView(R.id.function)
     EditText functionEditText;
-    @BindView(R.id.view_button)
-    Button viewButton;
     @BindView(R.id.view_function)
     Button viewFunctionButton;
+    @BindView(R.id.xbounds)
+    BoundsView xBoundsView;
+    @BindView(R.id.ybounds)
+    BoundsView yBoundsView;
 
-    private String x;
-    private String y;
-    private String z;
-    private boolean updateGraph;
+    private String[] parametricComponents = new String[3];
+    private String[] tBounds = new String[2];
+    private boolean updateParametricGraph;
 
     private String zFunction;
+    private String[] xBounds = new String[2];
+    private String[] yBounds = new String[2];
     private boolean updateFunctionGraph;
 
     private boolean functionVisible;
@@ -101,13 +109,12 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
         setContentView(R.layout.activity_main);
         ButterKnife.bind(this);
 
-        viewButton.setOnClickListener(view -> {
-            queueUpdateGraph();
-        });
+        viewParametricButton.setOnClickListener(view -> queueUpdateParametric());
+        tBoundsView.setBounds(new String[]{"0", "2*pi"});
 
-        viewFunctionButton.setOnClickListener(v -> {
-            queueUpdateFunction();
-        });
+        viewFunctionButton.setOnClickListener(v -> queueUpdateFunction());
+        xBoundsView.setBounds(new String[]{"-5", "5"});
+        yBoundsView.setBounds(new String[]{"-5", "5"});
 
         displayRotationHelper = new DisplayRotationHelper(this);
 
@@ -125,18 +132,21 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
         installRequested = false;
     }
 
-    private void queueUpdateFunction() {
-        zFunction = functionEditText.getText().toString();
-        functionVisible = true;
-        updateFunctionGraph = true;
+    private void queueUpdateParametric() {
+        parametricComponents[0] = parametricEditTexts.get(0).getText().toString();
+        parametricComponents[1] = parametricEditTexts.get(1).getText().toString();
+        parametricComponents[2] = parametricEditTexts.get(2).getText().toString();
+        tBounds = tBoundsView.getBounds();
+        functionVisible = false;
+        updateParametricGraph = true;
     }
 
-    private void queueUpdateGraph() {
-        x = parametricEditTexts.get(0).getText().toString();
-        y = parametricEditTexts.get(1).getText().toString();
-        z = parametricEditTexts.get(2).getText().toString();
-        functionVisible = false;
-        updateGraph = true;
+    private void queueUpdateFunction() {
+        zFunction = functionEditText.getText().toString();
+        xBounds = xBoundsView.getBounds();
+        yBounds = yBoundsView.getBounds();
+        functionVisible = true;
+        updateFunctionGraph = true;
     }
 
     @Override
@@ -251,11 +261,9 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
             planeRenderer.createOnGlThread(this, "arcore/models/trigrid.png");
             pointCloudRenderer.createOnGlThread(this);
 
-            graphObject.createOnGlThread(this);
-            //queueUpdateGraph();
+            curveObject.createOnGlThread(this);
 
-            surfaceObject.createOnGlThread(this);
-            queueUpdateFunction();
+            functionObject.createOnGlThread(this);
 
             axesRenderer.createOnGlThread(this);
 
@@ -378,23 +386,23 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
                 anchor.getPose().toMatrix(anchorMatrix, 0);
 
                 if (!functionVisible) {
-                    if (updateGraph) {
-                        graphObject.updateVerticesBuffer(x, y, z);
+                    if (updateParametricGraph) {
+                        curveObject.updateCurve(parametricComponents, tBounds);
                     }
-                    graphObject.updateModelMatrix(anchorMatrix, 0.05f);
-                    graphObject.draw(viewmtx, projmtx, colorCorrectionRgba);
+                    curveObject.updateModelMatrix(anchorMatrix, 0.05f);
+                    curveObject.draw(viewmtx, projmtx, colorCorrectionRgba);
                 } else {
                     if (updateFunctionGraph) {
-                        surfaceObject.updateSurface(zFunction);
+                        functionObject.updateSurface(zFunction, xBounds, yBounds, 20);
                     }
-                    surfaceObject.updateModelMatrix(anchorMatrix, 0.1f);
-                    surfaceObject.draw(viewmtx, projmtx, colorCorrectionRgba);
+                    functionObject.updateModelMatrix(anchorMatrix, 0.05f);
+                    functionObject.draw(viewmtx, projmtx, colorCorrectionRgba);
                 }
 
-                axesRenderer.updateModelMatrix(anchorMatrix, 0.05f);
+                axesRenderer.updateModelMatrix(anchorMatrix, 0.5f);
                 axesRenderer.draw(viewmtx, projmtx, colorCorrectionRgba);
 
-                updateGraph = false;
+                updateParametricGraph = false;
                 updateFunctionGraph = false;
             }
 

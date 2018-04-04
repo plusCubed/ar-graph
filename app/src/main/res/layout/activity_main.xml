@@ -8,8 +8,8 @@
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"
         android:layout_gravity="top"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <EditText
         android:id="@+id/para1"
@@ -20,10 +20,12 @@
         android:layout_marginTop="8dp"
         android:ems="10"
         android:inputType="textNoSuggestions|textVisiblePassword"
-        android:text="5*sin(t)"
+        android:text="5*cos(t)"
+        android:textSize="16sp"
+        android:typeface="monospace"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toEndOf="@+id/label1"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="@+id/surfaceview" />
 
     <EditText
         android:id="@+id/para2"
@@ -31,10 +33,11 @@
         android:layout_height="wrap_content"
         android:layout_marginEnd="8dp"
         android:layout_marginStart="8dp"
-        android:layout_marginTop="8dp"
         android:ems="10"
         android:inputType="textNoSuggestions|textVisiblePassword"
-        android:text="5*cos(t)"
+        android:text="5*sin(t)"
+        android:textSize="16sp"
+        android:typeface="monospace"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toEndOf="@+id/label2"
         app:layout_constraintTop_toBottomOf="@+id/para1" />
@@ -45,10 +48,11 @@
         android:layout_height="wrap_content"
         android:layout_marginEnd="8dp"
         android:layout_marginStart="8dp"
-        android:layout_marginTop="8dp"
         android:ems="10"
         android:inputType="textNoSuggestions|textVisiblePassword"
         android:text="t"
+        android:textSize="16sp"
+        android:typeface="monospace"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toEndOf="@+id/label3"
         app:layout_constraintTop_toBottomOf="@+id/para2" />
@@ -58,18 +62,18 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginEnd="8dp"
-        android:layout_marginTop="8dp"
         android:text="View"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/para3" />
+        app:layout_constraintTop_toBottomOf="@+id/tbounds" />
 
     <TextView
         android:id="@+id/label1"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
-        android:text="x(t):"
+        android:text="x(t)="
         android:textSize="16sp"
+        android:typeface="monospace"
         app:layout_constraintBaseline_toBaselineOf="@+id/para1"
         app:layout_constraintStart_toStartOf="parent" />
 
@@ -78,8 +82,9 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
-        android:text="y(t):"
+        android:text="y(t)="
         android:textSize="16sp"
+        android:typeface="monospace"
         app:layout_constraintBaseline_toBaselineOf="@+id/para2"
         app:layout_constraintStart_toStartOf="parent" />
 
@@ -88,8 +93,9 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
-        android:text="z(t):"
+        android:text="z(t)="
         android:textSize="16sp"
+        android:typeface="monospace"
         app:layout_constraintBaseline_toBaselineOf="@+id/para3"
         app:layout_constraintStart_toStartOf="parent" />
 
@@ -98,8 +104,9 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
-        android:text="z(x,y)"
+        android:text="z(x,y)="
         android:textSize="16sp"
+        android:typeface="monospace"
         app:layout_constraintBaseline_toBaselineOf="@+id/function"
         app:layout_constraintStart_toStartOf="parent" />
 
@@ -113,6 +120,8 @@
         android:ems="10"
         android:inputType="textNoSuggestions|textVisiblePassword"
         android:text="x^2+y^2"
+        android:textSize="16sp"
+        android:typeface="monospace"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toEndOf="@+id/label"
         app:layout_constraintTop_toBottomOf="@+id/view_button" />
@@ -122,9 +131,36 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginEnd="8dp"
-        android:layout_marginTop="8dp"
         android:text="View"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/ybounds" />
+
+
+    <com.pluscubed.graph.BoundsView
+        android:id="@+id/tbounds"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:text="t"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/para3" />
+
+    <com.pluscubed.graph.BoundsView
+        android:id="@+id/ybounds"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:text="y"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/function" />
+
+    <com.pluscubed.graph.BoundsView
+        android:id="@+id/xbounds"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:text="x"
+        app:layout_constraintEnd_toStartOf="@+id/ybounds"
         app:layout_constraintTop_toBottomOf="@+id/function" />
 
 </android.support.constraint.ConstraintLayout>

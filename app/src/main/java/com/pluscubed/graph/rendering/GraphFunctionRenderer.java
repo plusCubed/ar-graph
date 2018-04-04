@@ -4,6 +4,7 @@ import android.content.Context;
 import android.opengl.GLES20;
 import android.opengl.Matrix;
 
+import com.pluscubed.graph.Utils;
 import com.pluscubed.graph.arcore.rendering.ShaderUtil;
 
 import org.mariuszgromada.math.mxparser.Argument;
@@ -22,15 +23,15 @@ public class GraphFunctionRenderer {
     private static final String TAG = GraphFunctionRenderer.class.getSimpleName();
 
     // Shader names.
-    private static final String VERTEX_SHADER_NAME = "shaders/function.vert";
-    private static final String FRAGMENT_SHADER_NAME = "shaders/function.frag";
+    private static final String VERTEX_SHADER_NAME = "shaders/graph.vert";
+    private static final String FRAGMENT_SHADER_NAME = "shaders/graph.frag";
 
     private final float[] modelMatrix = new float[16];
     private final float[] modelViewMatrix = new float[16];
     private final float[] modelViewProjectionMatrix = new float[16];
 
-    private final float[] min = new float[3];
-    private final float[] max = new float[3];
+    private float[] min;
+    private float[] max;
 
     private int program;
 
@@ -71,7 +72,7 @@ public class GraphFunctionRenderer {
         Matrix.setIdentityM(modelMatrix, 0);
     }
 
-    public void updateSurface(String zString) {
+    public void updateSurface(String zString, String[] xBounds, String[] yBounds, int increments) {
         ShaderUtil.checkGLError(TAG, "before update");
 
         // 3D SURFACE
@@ -80,15 +81,19 @@ public class GraphFunctionRenderer {
         Argument yArgument = new Argument("y");
         Expression zExpression = new Expression(zString, xArgument, yArgument);
 
-        float minX = (float) -3;
-        float maxX = (float) 5;
-        float xIncrement = (float) .2;
-        xSteps = (int) ((maxX - minX) / xIncrement);
+        float minX = Utils.evaluateExpression(xBounds[0]);
+        float maxX = Utils.evaluateExpression(xBounds[1]);
+        float xRange = maxX - minX;
 
-        float minY = (float) -5;
-        float maxY = (float) 5;
-        float yIncrement = (float) .5;
-        ySteps = (int) ((maxY - minY) / yIncrement);
+        float minY = Utils.evaluateExpression(yBounds[0]);
+        float maxY = Utils.evaluateExpression(yBounds[1]);
+        float yRange = maxY - minY;
+
+        float maxRange = Math.max(xRange, yRange);
+        float increment = maxRange / increments;
+
+        xSteps = (int) (xRange / increment);
+        ySteps = (int) (yRange / increment);
 
         // Ordered x, then y
         float[] vertices = new float[xSteps * ySteps * 3];
@@ -97,8 +102,8 @@ public class GraphFunctionRenderer {
         float maxZ = Float.MIN_VALUE;
         for (int yi = 0; yi < ySteps; yi++) {
             for (int xi = 0; xi < xSteps; xi++) {
-                float x = minX + xi * xIncrement;
-                float y = minY + yi * yIncrement;
+                float x = minX + xi * increment;
+                float y = minY + yi * increment;
 
                 xArgument.setArgumentValue(x);
                 yArgument.setArgumentValue(y);
@@ -116,13 +121,8 @@ public class GraphFunctionRenderer {
             }
         }
 
-        min[0] = minX;
-        min[1] = minZ;
-        min[2] = minY;
-
-        max[0] = maxX;
-        max[1] = maxZ;
-        max[2] = maxY;
+        min = new float[]{minY, minZ, minX};
+        max = new float[]{maxY, maxZ, maxX};
 
         int[] buffers = new int[2];
         GLES20.glGenBuffers(2, buffers, 0);
