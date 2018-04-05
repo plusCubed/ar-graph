@@ -17,6 +17,8 @@ import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
 
 public class GraphFunctionRenderer {
+    public static final int SCALE_FACTOR_INCREMENTS = 750;
+
     private static final int BYTES_PER_FLOAT = Float.SIZE / 8;
     private static final int BYTES_PER_SHORT = Short.SIZE / 8;
 
@@ -72,7 +74,7 @@ public class GraphFunctionRenderer {
         Matrix.setIdentityM(modelMatrix, 0);
     }
 
-    public void updateSurface(String zString, String[] xBounds, String[] yBounds, int increments) {
+    public void updateSurface(String zString, String[] xBounds, String[] yBounds, float scaleFactor) {
         ShaderUtil.checkGLError(TAG, "before update");
 
         // 3D SURFACE
@@ -90,6 +92,7 @@ public class GraphFunctionRenderer {
         float yRange = maxY - minY;
 
         float maxRange = Math.max(xRange, yRange);
+        float increments = scaleFactor * SCALE_FACTOR_INCREMENTS;
         float increment = maxRange / increments;
 
         xSteps = (int) (xRange / increment);

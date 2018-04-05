@@ -19,6 +19,7 @@ package com.pluscubed.graph.arcore.helpers;
 import android.content.Context;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
 import android.view.View;
 import android.view.View.OnTouchListener;
 
@@ -31,7 +32,11 @@ import java.util.concurrent.BlockingQueue;
  */
 public final class TapHelper implements OnTouchListener {
     private final GestureDetector gestureDetector;
+    private final ScaleGestureDetector scaleGestureDetector;
     private final BlockingQueue<MotionEvent> queuedSingleTaps = new ArrayBlockingQueue<>(16);
+
+    private float accumulatedScaleFactor = 1f;
+    private boolean scaleEnded = false;
 
     /**
      * Creates the tap helper.
@@ -55,6 +60,36 @@ public final class TapHelper implements OnTouchListener {
                                 return true;
                             }
                         });
+
+        scaleGestureDetector = new ScaleGestureDetector(context, new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            @Override
+            public boolean onScale(ScaleGestureDetector detector) {
+                accumulatedScaleFactor *= detector.getScaleFactor();
+                return true;
+            }
+
+            @Override
+            public boolean onScaleBegin(ScaleGestureDetector detector) {
+                return super.onScaleBegin(detector);
+            }
+
+            @Override
+            public void onScaleEnd(ScaleGestureDetector detector) {
+                scaleEnded = true;
+            }
+        });
+    }
+
+    public float fetchScaleFactor() {
+        float scaleFactor = accumulatedScaleFactor;
+        accumulatedScaleFactor = 1f;
+        return scaleFactor;
+    }
+
+    public boolean fetchScaleEnded() {
+        boolean ended = scaleEnded;
+        scaleEnded = false;
+        return ended;
     }
 
     /**
@@ -68,6 +103,7 @@ public final class TapHelper implements OnTouchListener {
 
     @Override
     public boolean onTouch(View view, MotionEvent motionEvent) {
+        scaleGestureDetector.onTouchEvent(motionEvent);
         return gestureDetector.onTouchEvent(motionEvent);
     }
 }

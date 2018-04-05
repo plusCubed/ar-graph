@@ -16,6 +16,8 @@ import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 
 public class GraphCurveRenderer {
+    public static final int SCALE_FACTOR_INCREMENTS = 4000;
+
     private static final int BYTES_PER_FLOAT = Float.SIZE / 8;
     private static final int COORDS_PER_VERTEX = 3;
 
@@ -61,7 +63,7 @@ public class GraphCurveRenderer {
         Matrix.setIdentityM(modelMatrix, 0);
     }
 
-    public void updateCurve(String[] components, String[] bounds) {
+    public void updateCurve(String[] components, String[] bounds, float scaleFactor) {
 
         // 3D CURVE
 
@@ -74,7 +76,8 @@ public class GraphCurveRenderer {
         float tMax = Utils.evaluateExpression(bounds[1]);
         float tRange = tMax - tMin;
 
-        float increment = tRange / 200;
+        float increments = scaleFactor * SCALE_FACTOR_INCREMENTS;
+        float increment = tRange / increments;
         int steps = (int) (tRange / increment);
 
         float[] vertices = new float[steps * 3];

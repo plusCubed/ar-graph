@@ -54,6 +54,8 @@ import butterknife.ButterKnife;
 public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Renderer {
     private static final String TAG = GraphActivity.class.getSimpleName();
 
+    public static final float INITIAL_SCALE_FACTOR = 0.05f;
+
     private final SnackbarHelper messageSnackbarHelper = new SnackbarHelper();
     private final PointCloudRenderer pointCloudRenderer = new PointCloudRenderer();
     // Anchors created from taps used for object placing.
@@ -78,8 +80,10 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
 
     @BindViews({R.id.para1, R.id.para2, R.id.para3})
     List<EditText> parametricEditTexts;
-    @BindView(R.id.view_button)
+    @BindView(R.id.view_parametric)
     Button viewParametricButton;
+    @BindView(R.id.hide_parametric)
+    Button hideParametricButton;
     @BindView(R.id.tbounds)
     BoundsView tBoundsView;
 
@@ -87,6 +91,8 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
     EditText functionEditText;
     @BindView(R.id.view_function)
     Button viewFunctionButton;
+    @BindView(R.id.hide_function)
+    Button hideFunctionButton;
     @BindView(R.id.xbounds)
     BoundsView xBoundsView;
     @BindView(R.id.ybounds)
@@ -95,13 +101,15 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
     private String[] parametricComponents = new String[3];
     private String[] tBounds = new String[2];
     private boolean updateParametricGraph;
+    private boolean parametricVisible;
 
     private String zFunction;
     private String[] xBounds = new String[2];
     private String[] yBounds = new String[2];
     private boolean updateFunctionGraph;
-
     private boolean functionVisible;
+
+    private float scaleFactor = INITIAL_SCALE_FACTOR;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -109,10 +117,22 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
         setContentView(R.layout.activity_main);
         ButterKnife.bind(this);
 
-        viewParametricButton.setOnClickListener(view -> queueUpdateParametric());
+        viewParametricButton.setOnClickListener(view -> {
+            parametricVisible = true;
+            queueUpdateParametric();
+        });
+        hideParametricButton.setOnClickListener(view -> {
+            parametricVisible = false;
+        });
         tBoundsView.setBounds(new String[]{"0", "2*pi"});
 
-        viewFunctionButton.setOnClickListener(v -> queueUpdateFunction());
+        viewFunctionButton.setOnClickListener(v -> {
+            functionVisible = true;
+            queueUpdateFunction();
+        });
+        hideFunctionButton.setOnClickListener(view -> {
+            functionVisible = false;
+        });
         xBoundsView.setBounds(new String[]{"-5", "5"});
         yBoundsView.setBounds(new String[]{"-5", "5"});
 
@@ -137,7 +157,6 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
         parametricComponents[1] = parametricEditTexts.get(1).getText().toString();
         parametricComponents[2] = parametricEditTexts.get(2).getText().toString();
         tBounds = tBoundsView.getBounds();
-        functionVisible = false;
         updateParametricGraph = true;
     }
 
@@ -145,7 +164,6 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
         zFunction = functionEditText.getText().toString();
         xBounds = xBoundsView.getBounds();
         yBounds = yBoundsView.getBounds();
-        functionVisible = true;
         updateFunctionGraph = true;
     }
 
@@ -385,22 +403,27 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
                 // during calls to session.update() as ARCore refines its estimate of the world.
                 anchor.getPose().toMatrix(anchorMatrix, 0);
 
-                if (!functionVisible) {
-                    if (updateParametricGraph) {
-                        curveObject.updateCurve(parametricComponents, tBounds);
-                    }
-                    curveObject.updateModelMatrix(anchorMatrix, 0.05f);
-                    curveObject.draw(viewmtx, projmtx, colorCorrectionRgba);
-                } else {
-                    if (updateFunctionGraph) {
-                        functionObject.updateSurface(zFunction, xBounds, yBounds, 20);
-                    }
-                    functionObject.updateModelMatrix(anchorMatrix, 0.05f);
-                    functionObject.draw(viewmtx, projmtx, colorCorrectionRgba);
-                }
+                scaleFactor *= tapHelper.fetchScaleFactor();
 
                 axesRenderer.updateModelMatrix(anchorMatrix, 0.5f);
                 axesRenderer.draw(viewmtx, projmtx, colorCorrectionRgba);
+
+                boolean scaleEnded = tapHelper.fetchScaleEnded();
+                if (parametricVisible) {
+                    if (updateParametricGraph || scaleEnded) {
+                        curveObject.updateCurve(parametricComponents, tBounds, scaleFactor);
+                    }
+                    curveObject.updateModelMatrix(anchorMatrix, scaleFactor);
+                    curveObject.draw(viewmtx, projmtx, colorCorrectionRgba);
+                }
+
+                if (functionVisible) {
+                    if (updateFunctionGraph || scaleEnded) {
+                        functionObject.updateSurface(zFunction, xBounds, yBounds, scaleFactor);
+                    }
+                    functionObject.updateModelMatrix(anchorMatrix, scaleFactor);
+                    functionObject.draw(viewmtx, projmtx, colorCorrectionRgba);
+                }
 
                 updateParametricGraph = false;
                 updateFunctionGraph = false;

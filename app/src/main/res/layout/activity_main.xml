@@ -58,12 +58,21 @@
         app:layout_constraintTop_toBottomOf="@+id/para2" />
 
     <Button
-        android:id="@+id/view_button"
+        android:id="@+id/view_parametric"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginEnd="8dp"
         android:text="View"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tbounds" />
+
+    <Button
+        android:id="@+id/hide_parametric"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:text="Hide"
+        app:layout_constraintEnd_toStartOf="@+id/view_parametric"
         app:layout_constraintTop_toBottomOf="@+id/tbounds" />
 
     <TextView
@@ -124,7 +133,7 @@
         android:typeface="monospace"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toEndOf="@+id/label"
-        app:layout_constraintTop_toBottomOf="@+id/view_button" />
+        app:layout_constraintTop_toBottomOf="@+id/view_parametric" />
 
     <Button
         android:id="@+id/view_function"
@@ -162,5 +171,14 @@
         android:text="x"
         app:layout_constraintEnd_toStartOf="@+id/ybounds"
         app:layout_constraintTop_toBottomOf="@+id/function" />
+
+    <Button
+        android:id="@+id/hide_function"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:text="Hide"
+        app:layout_constraintEnd_toStartOf="@+id/view_function"
+        app:layout_constraintTop_toBottomOf="@+id/ybounds" />
 
 </android.support.constraint.ConstraintLayout>
