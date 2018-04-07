@@ -20,7 +20,7 @@
         android:layout_marginTop="8dp"
         android:ems="10"
         android:inputType="textNoSuggestions|textVisiblePassword"
-        android:text="5*cos(t)"
+        android:text="cos(t)*(5+cos(u))"
         android:textSize="16sp"
         android:typeface="monospace"
         app:layout_constraintEnd_toEndOf="parent"
@@ -35,7 +35,7 @@
         android:layout_marginStart="8dp"
         android:ems="10"
         android:inputType="textNoSuggestions|textVisiblePassword"
-        android:text="5*sin(t)"
+        android:text="sin(t)*(5+cos(u))"
         android:textSize="16sp"
         android:typeface="monospace"
         app:layout_constraintEnd_toEndOf="parent"
@@ -50,7 +50,7 @@
         android:layout_marginStart="8dp"
         android:ems="10"
         android:inputType="textNoSuggestions|textVisiblePassword"
-        android:text="t"
+        android:text="sin(u)"
         android:textSize="16sp"
         android:typeface="monospace"
         app:layout_constraintEnd_toEndOf="parent"
@@ -64,7 +64,7 @@
         android:layout_marginEnd="8dp"
         android:text="View"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/tbounds" />
+        app:layout_constraintTop_toBottomOf="@+id/ubounds" />
 
     <Button
         android:id="@+id/hide_parametric"
@@ -73,14 +73,14 @@
         android:layout_marginEnd="8dp"
         android:text="Hide"
         app:layout_constraintEnd_toStartOf="@+id/view_parametric"
-        app:layout_constraintTop_toBottomOf="@+id/tbounds" />
+        app:layout_constraintTop_toBottomOf="@+id/ubounds" />
 
     <TextView
         android:id="@+id/label1"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
-        android:text="x(t)="
+        android:text="x(t,u)="
         android:textSize="16sp"
         android:typeface="monospace"
         app:layout_constraintBaseline_toBaselineOf="@+id/para1"
@@ -91,7 +91,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
-        android:text="y(t)="
+        android:text="y(t,u)="
         android:textSize="16sp"
         android:typeface="monospace"
         app:layout_constraintBaseline_toBaselineOf="@+id/para2"
@@ -102,7 +102,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
-        android:text="z(t)="
+        android:text="z(t,u)="
         android:textSize="16sp"
         android:typeface="monospace"
         app:layout_constraintBaseline_toBaselineOf="@+id/para3"
@@ -151,6 +151,15 @@
         android:layout_height="wrap_content"
         android:layout_marginEnd="8dp"
         android:text="t"
+        app:layout_constraintEnd_toStartOf="@+id/ubounds"
+        app:layout_constraintTop_toBottomOf="@+id/para3" />
+
+    <com.pluscubed.graph.BoundsView
+        android:id="@+id/ubounds"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:text="u"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/para3" />
 

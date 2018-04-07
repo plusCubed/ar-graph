@@ -39,6 +39,7 @@ import com.pluscubed.graph.arcore.rendering.PointCloudRenderer;
 import com.pluscubed.graph.rendering.AxesRenderer;
 import com.pluscubed.graph.rendering.GraphCurveRenderer;
 import com.pluscubed.graph.rendering.GraphFunctionRenderer;
+import com.pluscubed.graph.rendering.GraphSurfaceRenderer;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -70,6 +71,7 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
     private final PlaneRenderer planeRenderer = new PlaneRenderer();
     private DisplayRotationHelper displayRotationHelper;
 
+    private final GraphSurfaceRenderer surfaceObject = new GraphSurfaceRenderer();
     private final GraphCurveRenderer curveObject = new GraphCurveRenderer();
     private final AxesRenderer axesRenderer = new AxesRenderer();
     private final GraphFunctionRenderer functionObject = new GraphFunctionRenderer();
@@ -86,6 +88,8 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
     Button hideParametricButton;
     @BindView(R.id.tbounds)
     BoundsView tBoundsView;
+    @BindView(R.id.ubounds)
+    BoundsView uBoundsView;
 
     @BindView(R.id.function)
     EditText functionEditText;
@@ -100,8 +104,10 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
 
     private String[] parametricComponents = new String[3];
     private String[] tBounds = new String[2];
+    private String[] uBounds = new String[2];
     private boolean updateParametricGraph;
     private boolean parametricVisible;
+    private boolean isParametricSurface;
 
     private String zFunction;
     private String[] xBounds = new String[2];
@@ -125,6 +131,7 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
             parametricVisible = false;
         });
         tBoundsView.setBounds(new String[]{"0", "2*pi"});
+        uBoundsView.setBounds(new String[]{"0", "2*pi"});
 
         viewFunctionButton.setOnClickListener(v -> {
             functionVisible = true;
@@ -157,7 +164,9 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
         parametricComponents[1] = parametricEditTexts.get(1).getText().toString();
         parametricComponents[2] = parametricEditTexts.get(2).getText().toString();
         tBounds = tBoundsView.getBounds();
+        uBounds = uBoundsView.getBounds();
         updateParametricGraph = true;
+        isParametricSurface = parametricComponents[0].contains("u") || parametricComponents[1].contains("u") || parametricComponents[2].contains("u");
     }
 
     private void queueUpdateFunction() {
@@ -280,8 +289,8 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
             pointCloudRenderer.createOnGlThread(this);
 
             curveObject.createOnGlThread(this);
-
             functionObject.createOnGlThread(this);
+            surfaceObject.createOnGlThread(this);
 
             axesRenderer.createOnGlThread(this);
 
@@ -410,11 +419,19 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
 
                 boolean scaleEnded = tapHelper.fetchScaleEnded();
                 if (parametricVisible) {
-                    if (updateParametricGraph || scaleEnded) {
-                        curveObject.updateCurve(parametricComponents, tBounds, scaleFactor);
+                    if (isParametricSurface) {
+                        if (updateParametricGraph || scaleEnded) {
+                            surfaceObject.updateSurface(parametricComponents, tBounds, uBounds, scaleFactor);
+                        }
+                        surfaceObject.updateModelMatrix(anchorMatrix, scaleFactor);
+                        surfaceObject.draw(viewmtx, projmtx, colorCorrectionRgba);
+                    } else {
+                        if (updateParametricGraph || scaleEnded) {
+                            curveObject.updateCurve(parametricComponents, tBounds, scaleFactor);
+                        }
+                        curveObject.updateModelMatrix(anchorMatrix, scaleFactor);
+                        curveObject.draw(viewmtx, projmtx, colorCorrectionRgba);
                     }
-                    curveObject.updateModelMatrix(anchorMatrix, scaleFactor);
-                    curveObject.draw(viewmtx, projmtx, colorCorrectionRgba);
                 }
 
                 if (functionVisible) {
