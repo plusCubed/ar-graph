@@ -86,10 +86,8 @@ public class GraphSurfaceRenderer {
 
         float increments = scaleFactor * SCALE_FACTOR_INCREMENTS;
 
-        float tIncrement = tRange / increments;
+        // Add one
         int tSteps = (int) increments + 1;
-
-        float uIncrement = uRange / increments;
         int uSteps = (int) increments + 1;
 
         // Ordered t, then u
@@ -102,8 +100,8 @@ public class GraphSurfaceRenderer {
 
         for (int ui = 0; ui < uSteps; ui++) {
             for (int ti = 0; ti < tSteps; ti++) {
-                float t = tMin + ti * tIncrement;
-                float u = uMin + ui * uIncrement;
+                float t = tMin + (float) ti / (tSteps - 1) * tRange;
+                float u = uMin + (float) ui / (uSteps - 1) * uRange;
 
                 tArgument.setArgumentValue(t);
                 uArgument.setArgumentValue(u);

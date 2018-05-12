@@ -95,8 +95,8 @@ public class GraphFunctionRenderer {
         float increments = scaleFactor * SCALE_FACTOR_INCREMENTS;
         float increment = maxRange / increments;
 
-        xSteps = (int) (xRange / increment);
-        ySteps = (int) (yRange / increment);
+        xSteps = (int) (xRange / increment) + 1;
+        ySteps = (int) (yRange / increment) + 1;
 
         // Ordered x, then y
         float[] vertices = new float[xSteps * ySteps * 3];
@@ -105,8 +105,8 @@ public class GraphFunctionRenderer {
         float maxZ = Float.MIN_VALUE;
         for (int yi = 0; yi < ySteps; yi++) {
             for (int xi = 0; xi < xSteps; xi++) {
-                float x = minX + xi * increment;
-                float y = minY + yi * increment;
+                float x = minX + (float) xi / (xSteps - 1) * xRange;
+                float y = minY + (float) yi / (ySteps - 1) * yRange;
 
                 xArgument.setArgumentValue(x);
                 yArgument.setArgumentValue(y);

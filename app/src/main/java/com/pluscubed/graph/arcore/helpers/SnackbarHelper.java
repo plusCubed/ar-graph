@@ -29,15 +29,24 @@ public final class SnackbarHelper {
     private static final int BACKGROUND_COLOR = 0xbf323232;
     private Snackbar messageSnackbar;
 
+    /**
+     * Shows a snackbar with a given message.
+     */
+    public void showMessage(Activity activity, String message) {
+        show(activity, message, DismissBehavior.HIDE);
+    }
+
+    ;
+
     public boolean isShowing() {
         return messageSnackbar != null;
     }
 
     /**
-     * Shows a snackbar with a given message. When dismissed, will just hide the snackbar.
+     * Shows a snackbar with a given message, and a dismiss button.
      */
-    public void showMessage(Activity activity, String message) {
-        show(activity, message, /*finishOnDismiss=*/ false);
+    public void showMessageWithDismiss(Activity activity, String message) {
+        show(activity, message, DismissBehavior.SHOW);
     }
 
     /**
@@ -45,7 +54,44 @@ public final class SnackbarHelper {
      * for notifying errors, where no further interaction with the activity is possible.
      */
     public void showError(Activity activity, String errorMessage) {
-        show(activity, errorMessage, /*finishOnDismiss=*/ true);
+        show(activity, errorMessage, DismissBehavior.FINISH);
+    }
+
+    private void show(
+            final Activity activity, final String message, final DismissBehavior dismissBehavior) {
+        activity.runOnUiThread(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        messageSnackbar =
+                                Snackbar.make(
+                                        activity.findViewById(android.R.id.content),
+                                        message,
+                                        Snackbar.LENGTH_INDEFINITE);
+                        messageSnackbar.getView().setBackgroundColor(BACKGROUND_COLOR);
+                        if (dismissBehavior != DismissBehavior.HIDE) {
+                            messageSnackbar.setAction(
+                                    "Dismiss",
+                                    new View.OnClickListener() {
+                                        @Override
+                                        public void onClick(View v) {
+                                            messageSnackbar.dismiss();
+                                        }
+                                    });
+                            if (dismissBehavior == DismissBehavior.FINISH) {
+                                messageSnackbar.addCallback(
+                                        new BaseTransientBottomBar.BaseCallback<Snackbar>() {
+                                            @Override
+                                            public void onDismissed(Snackbar transientBottomBar, int event) {
+                                                super.onDismissed(transientBottomBar, event);
+                                                activity.finish();
+                                            }
+                                        });
+                            }
+                        }
+                        messageSnackbar.show();
+                    }
+                });
     }
 
     /**
@@ -65,37 +111,5 @@ public final class SnackbarHelper {
                 });
     }
 
-    private void show(final Activity activity, final String message, final boolean finishOnDismiss) {
-        activity.runOnUiThread(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        messageSnackbar =
-                                Snackbar.make(
-                                        activity.findViewById(android.R.id.content),
-                                        message,
-                                        Snackbar.LENGTH_INDEFINITE);
-                        messageSnackbar.getView().setBackgroundColor(BACKGROUND_COLOR);
-                        if (finishOnDismiss) {
-                            messageSnackbar.setAction(
-                                    "Dismiss",
-                                    new View.OnClickListener() {
-                                        @Override
-                                        public void onClick(View v) {
-                                            messageSnackbar.dismiss();
-                                        }
-                                    });
-                            messageSnackbar.addCallback(
-                                    new BaseTransientBottomBar.BaseCallback<Snackbar>() {
-                                        @Override
-                                        public void onDismissed(Snackbar transientBottomBar, int event) {
-                                            super.onDismissed(transientBottomBar, event);
-                                            activity.finish();
-                                        }
-                                    });
-                        }
-                        messageSnackbar.show();
-                    }
-                });
-    }
+    private enum DismissBehavior { HIDE, SHOW, FINISH }
 }
