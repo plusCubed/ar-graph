@@ -3,7 +3,7 @@ package com.pluscubed.graph;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
-import android.support.v7.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatActivity;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.widget.Button;
@@ -201,9 +201,8 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
 
                 // Create the session.
                 session = new Session(/* context= */ this);
-
             } catch (UnavailableArcoreNotInstalledException
-                    | UnavailableUserDeclinedInstallationException e) {
+                     | UnavailableUserDeclinedInstallationException e) {
                 message = "Please install ARCore";
                 exception = e;
             } catch (UnavailableApkTooOldException e) {
@@ -260,7 +259,9 @@ public class GraphActivity extends AppCompatActivity implements GLSurfaceView.Re
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(requestCode, permissions, results);
         if (!CameraPermissionHelper.hasCameraPermission(this)) {
+            // Use toast instead of snackbar here since the activity will exit.
             Toast.makeText(this, "Camera permission is needed to run this application", Toast.LENGTH_LONG)
                     .show();
             if (!CameraPermissionHelper.shouldShowRequestPermissionRationale(this)) {
